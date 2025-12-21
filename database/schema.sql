@@ -1,0 +1,65 @@
+-- database/schema.sql
+
+-- 1. 사용자 테이블 (USERS)
+CREATE TABLE IF NOT EXISTS USERS (
+    user_id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    nickname VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 2. 문제 데이터 테이블 (CONTENT)
+CREATE TABLE IF NOT EXISTS CONTENT (
+    content_id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(200) NOT NULL,
+    description TEXT NOT NULL,
+    difficulty ENUM('Easy', 'Normal', 'Hard') DEFAULT 'Easy',
+    answer_code TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 3. 제출 기록 테이블 (SUBMISSIONS)
+CREATE TABLE IF NOT EXISTS SUBMISSIONS (
+    submission_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    content_id INT NOT NULL,
+    image_path VARCHAR(255),
+    converted_code TEXT,
+    success_rate FLOAT,
+    status VARCHAR(20) DEFAULT 'PENDING',
+    submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES USERS(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (content_id) REFERENCES CONTENT(content_id) ON DELETE CASCADE
+);
+
+-- 4. 게시글 테이블 (POSTS)
+CREATE TABLE IF NOT EXISTS POSTS (
+    post_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES USERS(user_id) ON DELETE CASCADE
+);
+
+-- 5. 댓글 테이블 (COMMENTS)
+CREATE TABLE IF NOT EXISTS COMMENTS (
+    comment_id INT AUTO_INCREMENT PRIMARY KEY,
+    post_id INT NOT NULL,
+    user_id INT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (post_id) REFERENCES POSTS(post_id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES USERS(user_id) ON DELETE CASCADE
+);
+
+-- 6. 공지사항 테이블 (ANNOUNCEMENTS)
+CREATE TABLE IF NOT EXISTS ANNOUNCEMENTS (
+    announcement_id INT AUTO_INCREMENT PRIMARY KEY,
+    admin_id INT NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (admin_id) REFERENCES USERS(user_id) ON DELETE CASCADE
+);
