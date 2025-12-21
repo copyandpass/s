@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  # 1. 데이터베이스 컨테이너
+  db:
+    image: mysql:8.0
+    container_name: soncoding-db
+    restart: always
+    environment:
+      MYSQL_DATABASE: suhodang
+      MYSQL_ROOT_PASSWORD: your_password  # 원하는 비밀번호로 수정
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql  # 컨테이너를 지워도 데이터가 보존되도록 설정
+
+  # 2. FastAPI 앱 컨테이너
+  app:
+    build: .
+    container_name: soncoding-app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db  # DB가 먼저 뜬 다음에 앱이 뜨도록 설정
+    environment:
+      DB_HOST: db  # 컴포즈 내부에서는 서비스 이름인 'db'로 접속 가능
+      DB_USER: root
+      DB_PASSWORD: your_password
+      DB_NAME: suhodang
+
+volumes:
+  db_data:

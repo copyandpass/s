@@ -27,3 +27,5 @@ urllib3==2.5.0
 uvicorn==0.37.0
 watchfiles==1.1.0
 websockets==15.0.1
+fastapi-plugins== 0.14.0
+mysql-connector-python==9.4.0
