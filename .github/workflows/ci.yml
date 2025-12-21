@@ -40,9 +40,11 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ 'AIzaSyDyjdlEpCmVzkfC1OZzKEmspZR_ZL0_Cco' }}
           DB_HOST: 127.0.0.1
-          DB_USER: test
+          DB_USER: root
           DB_PASSWORD: test
           DB_NAME: test_db
+          # 이 부분이 핵심입니다: 현재 디렉토리(.)를 파이썬 경로에 추가
+          PYTHONPATH: .
         run: |
           pytest -q --junitxml=pytest-report.xml
 
