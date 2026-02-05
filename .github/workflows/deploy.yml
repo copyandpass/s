@@ -1,0 +1,116 @@
+name: Build and Deploy to Docker Hub & Windows Server
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # 1. 소스코드 체크아웃
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # 2. Docker 로그인
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      
+      # 3. Docker Buildx 설정 (멀티 플랫폼 빌드용)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      # 4. Docker 이미지 빌드 및 푸시
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./dockerfile
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/soncoding-web:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      # 5. 빌드 성공 메시지
+      - name: Image build successful
+        run: echo "Docker image pushed to Docker Hub successfully"
+
+  deploy-to-windows:
+    needs: build-and-push
+    runs-on: windows-latest
+    
+    steps:
+      # 1. Windows Server에 SSH 접속 및 배포 스크립트 실행
+      - name: Deploy to Windows Server
+        shell: powershell
+        run: |
+          # SSH 접속을 위한 암호 설정
+          $sshKeyPath = "$env:TEMP\deploy_key.pem"
+          $deployScript = "$env:TEMP\deploy.bat"
+          
+          # Windows Server 정보
+          $winHost = "${{ secrets.WIN_HOST }}"
+          $winUser = "${{ secrets.WIN_USER }}"
+          $winPass = "${{ secrets.WIN_PASS }}"
+          
+          Write-Host "Connecting to Windows Server: $winHost"
+          
+          # PowerShell Remoting을 이용한 접속
+          $securePassword = ConvertTo-SecureString "$winPass" -AsPlainText -Force
+          $credential = New-Object System.Management.Automation.PSCredential($winUser, $securePassword)
+          
+          try {
+            # 원격 세션 생성
+            $session = New-PSSession -ComputerName $winHost -Credential $credential -ErrorAction Stop
+            Write-Host "Successfully connected to Windows Server"
+            
+            # 배포 스크립트 실행
+            Invoke-Command -Session $session -ScriptBlock {
+              $deployPath = "C:\Users\$env:USERNAME\Desktop\soncoding-web"
+              
+              if (Test-Path $deployPath) {
+                Set-Location $deployPath
+                
+                Write-Host "===== CURRENT DIR ====="
+                Get-Location
+                
+                Write-Host "===== DOCKER VERSION ====="
+                docker --version
+                
+                Write-Host "===== STOP OLD CONTAINERS ====="
+                docker-compose down -f
+                
+                Write-Host "===== REMOVE OLD IMAGE ====="
+                docker rmi thkim0812/soncoding-web:latest -f
+                
+                Write-Host "===== PULL LATEST IMAGE ====="
+                docker pull thkim0812/soncoding-web:latest
+                
+                Write-Host "===== START NEW CONTAINERS ====="
+                docker-compose up -d
+                
+                Write-Host "===== DOCKER PS (AFTER) ====="
+                docker ps
+                
+                Write-Host "===== VERIFY IMAGE ====="
+                docker images thkim0812/soncoding-web:latest
+                
+                Write-Host "===== DEPLOYMENT COMPLETE ====="
+              } else {
+                Write-Host "Deploy path not found: $deployPath"
+                exit 1
+              }
+            } -ErrorAction Stop
+            
+            Remove-PSSession $session
+            Write-Host "Deployment completed successfully"
+          } catch {
+            Write-Host "Deployment failed: $_"
+            exit 1
+          }
