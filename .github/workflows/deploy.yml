@@ -33,7 +33,7 @@ jobs:
           context: .
           file: ./dockerfile
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/soncoding-web:latest
+          tags: ${{ secrets.DOCKER_USERNAME }}/soncoding-server:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
       
@@ -70,37 +70,45 @@ jobs:
             $session = New-PSSession -ComputerName $winHost -Credential $credential -ErrorAction Stop
             Write-Host "Successfully connected to Windows Server"
             
-            # 배포 스크립트 실행
+            # 배포 스크립트 실행 (이미지 기반 풀 & 컨테이너 재시작)
             Invoke-Command -Session $session -ScriptBlock {
               $deployPath = "C:\Users\$env:USERNAME\Desktop\soncoding-web"
-              
+              $image = "${{ secrets.DOCKER_USERNAME }}/soncoding-server:latest"
+
               if (Test-Path $deployPath) {
                 Set-Location $deployPath
-                
+
                 Write-Host "===== CURRENT DIR ====="
                 Get-Location
-                
+
                 Write-Host "===== DOCKER VERSION ====="
                 docker --version
-                
-                Write-Host "===== STOP OLD CONTAINERS ====="
-                docker-compose down -f
-                
-                Write-Host "===== REMOVE OLD IMAGE ====="
-                docker rmi thkim0812/soncoding-web:latest -f
-                
-                Write-Host "===== PULL LATEST IMAGE ====="
-                docker pull thkim0812/soncoding-web:latest
-                
-                Write-Host "===== START NEW CONTAINERS ====="
-                docker-compose up -d
-                
+
+                Write-Host "===== STOP & REMOVE EXISTING CONTAINER (IF ANY) ====="
+                try {
+                  docker stop soncoding-app -t 10 -ErrorAction SilentlyContinue | Out-Null
+                } catch {}
+                try {
+                  docker rm soncoding-app -f -ErrorAction SilentlyContinue | Out-Null
+                } catch {}
+
+                Write-Host "===== REMOVE OLD IMAGE (IF WANTED) ====="
+                try {
+                  docker rmi $image -f -ErrorAction SilentlyContinue | Out-Null
+                } catch {}
+
+                Write-Host "===== PULL LATEST IMAGE: $image ====="
+                docker pull $image
+
+                Write-Host "===== RUN NEW CONTAINER ====="
+                docker run -d --name soncoding-app --restart unless-stopped -p 80:8000 $image
+
                 Write-Host "===== DOCKER PS (AFTER) ====="
                 docker ps
-                
+
                 Write-Host "===== VERIFY IMAGE ====="
-                docker images thkim0812/soncoding-web:latest
-                
+                docker images $image
+
                 Write-Host "===== DEPLOYMENT COMPLETE ====="
               } else {
                 Write-Host "Deploy path not found: $deployPath"

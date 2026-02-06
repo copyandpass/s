@@ -1,0 +1,48 @@
+# Dockerfile.improved - 개선된 버전 (참고용)
+# 실제 적용하려면 기존 dockerfile을 이것으로 교체하세요
+
+# 1️⃣ 빌드 스테이지 (Multi-stage build)
+FROM python:3.11-slim as builder
+
+# 작업 디렉토리 설정
+WORKDIR /app
+
+# 의존성 설치
+COPY requirements.txt .
+RUN pip install --no-cache-dir --user -r requirements.txt
+
+# 2️⃣ 런타임 스테이지
+FROM python:3.11-slim
+
+# 메타데이터
+LABEL maintainer="dev@soncoding.kr"
+LABEL version="1.0"
+LABEL description="Soncoding Web API Server"
+
+# 작업 디렉토리 설정
+WORKDIR /app
+
+# 보안: 일반 사용자 생성 (root 권한 제거)
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# 빌드 스테이지에서 설치된 패키지 복사
+COPY --from=builder /root/.local /home/appuser/.local
+COPY --chown=appuser:appuser . .
+
+# PATH 설정
+ENV PATH=/home/appuser/.local/bin:$PATH
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# 사용자 전환 (보안)
+USER appuser
+
+# 포트 노출
+EXPOSE 8000
+
+# 헬스 체크
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000').read()"
+
+# 서버 실행
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "info"]

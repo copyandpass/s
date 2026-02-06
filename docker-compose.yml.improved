@@ -1,0 +1,108 @@
+# docker-compose.yml.improved - 개선된 버전 (참고용)
+# 실제 적용하려면 기존 docker-compose.yml을 이것으로 교체하세요
+
+version: '3.8'
+
+services:
+  # 1. MySQL 데이터베이스 컨테이너
+  db:
+    image: mysql:8.0
+    container_name: soncoding-db
+    restart: always
+    
+    # 환경 변수 설정 (보안)
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-suhodang}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-1234}  # 기본값 제공
+      MYSQL_ROOT_HOST: '%'  # 외부 접근 허용
+      TZ: 'Asia/Seoul'  # 타임존 설정
+    
+    # 포트 바인딩
+    ports:
+      - "3306:3306"
+    
+    # 볼륨 (데이터 영속성)
+    volumes:
+      - db_data:/var/lib/mysql  # Named volume
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql  # 초기 스키마
+      - ./database/data.sql:/docker-entrypoint-initdb.d/02-data.sql      # 초기 데이터
+    
+    # 헬스 체크
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    
+    # 네트워크
+    networks:
+      - soncoding-network
+
+  # 2. FastAPI 앱 컨테이너
+  app:
+    build: .
+    container_name: soncoding-app
+    restart: always
+    
+    # 포트 바인딩
+    ports:
+      - "8000:8000"
+    
+    # 의존성 설정
+    depends_on:
+      db:
+        condition: service_healthy  # DB 헬스 체크까지 기다림
+    
+    # 환경 변수 설정
+    environment:
+      DB_HOST: db              # Docker Compose 네트워크 내부 호스트명
+      DB_USER: ${DB_USER:-root}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME:-suhodang}
+      FASTAPI_ENV: ${FASTAPI_ENV:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    
+    # 볼륨 마운트 (선택사항)
+    volumes:
+      - ./logs:/app/logs  # 로그 디렉토리
+    
+    # 헬스 체크
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s  # 시작 대기 시간
+    
+    # 네트워크
+    networks:
+      - soncoding-network
+    
+    # 리소스 제한 (선택사항)
+    # 주석 해제하여 사용 가능
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '1'
+    #       memory: 512M
+    #     reservations:
+    #       cpus: '0.5'
+    #       memory: 256M
+    
+    # 로깅 설정 (선택사항)
+    # 주석 해제하여 사용 가능
+    # logging:
+    #   driver: "json-file"
+    #   options:
+    #     max-size: "10m"
+    #     max-file: "3"
+
+# 네트워크 정의
+networks:
+  soncoding-network:
+    driver: bridge
+
+# 볼륨 정의
+volumes:
+  db_data:
+    driver: local
