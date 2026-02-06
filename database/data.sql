@@ -49,3 +49,5 @@
     -- admin_id는 관리자 권한을 가진 user_id를 의미합니다. (여기서는 1번 유저를 관리자로 가정)
     INSERT INTO ANNOUNCEMENTS (admin_id, title, content) VALUES
     (1, '손코딩 서비스 정식 오픈 안내', '안녕하세요! 손코딩 이미지 변환 서비스가 정식 오픈했습니다. 많은 이용 부탁드립니다.');
+
+    ..
