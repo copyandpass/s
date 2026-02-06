@@ -33,7 +33,9 @@ jobs:
           context: .
           file: ./dockerfile
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/soncoding-server:latest
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/soncoding-server:latest
+            ${{ secrets.DOCKER_USERNAME }}/soncoding-server:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
       
@@ -73,7 +75,7 @@ jobs:
             # 배포 스크립트 실행 (이미지 기반 풀 & 컨테이너 재시작)
             Invoke-Command -Session $session -ScriptBlock {
               $deployPath = "C:\Users\$env:USERNAME\Desktop\soncoding-web"
-              $image = "${{ secrets.DOCKER_USERNAME }}/soncoding-server:latest"
+              $image = "leejinhyuck/soncoding-server:latest"
 
               if (Test-Path $deployPath) {
                 Set-Location $deployPath
