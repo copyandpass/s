@@ -34,8 +34,8 @@ jobs:
           file: ./dockerfile
           push: true
           tags: |
-            ${{ secrets.DOCKER_USERNAME }}/soncoding-server:latest
-            ${{ secrets.DOCKER_USERNAME }}/soncoding-server:${{ github.sha }}
+            ${{ secrets.DOCKER_USERNAME }}soncoding-server:latest
+            ${{ secrets.DOCKER_USERNAME }}soncoding-server:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
       
