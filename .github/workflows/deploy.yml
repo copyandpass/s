@@ -19,4 +19,7 @@ jobs:
           username: ${{ secrets.WIN_USER }}
           password: ${{ secrets.WIN_PASS }}
           timeout: 60s
-          script: C:\Users\jhlee\OneDrive\Desktop\Server\Server_test\s\deploy.bat
+          port: 22
+          script: |
+            cd C:\Users\%USERNAME%\Desktop\soncoding-web
+            call deploy.bat
