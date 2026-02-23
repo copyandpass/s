@@ -4,63 +4,55 @@ on:
   workflow_run:
     workflows: [ "CI/CD Pipeline" ]
     types: [ completed ]
-    branches: [ main, master ]
+    branches: [ main ]
 
 jobs:
   deploy-to-windows:
     if: github.event.workflow_run.conclusion == 'success'
-    runs-on: windows-latest
+    runs-on: [self-hosted, windows]
     
     steps:
-      # 1. Windows Server에 SSH 접속 및 배포 스크립트 실행
-      - name: Deploy to Windows Server
+      # 1. 코드 체크아웃
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
+      
+      # 2. Docker 컨테이너 배포
+      - name: Deploy Docker Container
         shell: powershell
         run: |
-          # Windows Server 정보
-          $winHost = "${{ secrets.WIN_HOST }}"
-          $winUser = "${{ secrets.WIN_USER }}"
-          $winPass = "${{ secrets.WIN_PASS }}"
+          $deployPath = "C:\Users\$env:USERNAME\Desktop\soncoding-web"
+          $image = "${{ secrets.DOCKER_USERNAME }}/soncoding-server:latest"
           
-          Write-Host "Connecting to Windows Server: $winHost"
+          Write-Host "===== DEPLOYMENT START ====="
+          Write-Host "Deploy Path: $deployPath"
+          Write-Host "Image: $image"
           
-          # PowerShell Remoting을 이용한 접속
-          $securePassword = ConvertTo-SecureString "$winPass" -AsPlainText -Force
-          $credential = New-Object System.Management.Automation.PSCredential($winUser, $securePassword)
-          
-          try {
-            # 원격 세션 생성
-            $session = New-PSSession -ComputerName $winHost -Credential $credential -ErrorAction Stop
-            Write-Host "Successfully connected to Windows Server"
+          if (Test-Path $deployPath) {
+            Set-Location $deployPath
             
-            # 배포 스크립트 실행
-            Invoke-Command -Session $session -ScriptBlock {
-              $deployPath = "C:\Users\$env:USERNAME\Desktop\soncoding-web"
-              # 아래 이미지는 빌드한 이미지 명칭과 정확히 일치해야 합니다.
-              $image = "${{ secrets.DOCKER_USERNAME }}/soncoding-server:latest"
-
-              if (Test-Path $deployPath) {
-                Set-Location $deployPath
-
-                Write-Host "===== STOP & REMOVE EXISTING CONTAINER ====="
-                try { docker stop soncoding-app -t 10 } catch {}
-                try { docker rm soncoding-app -f } catch {}
-
-                Write-Host "===== PULL LATEST IMAGE ====="
-                docker pull $image
-
-                Write-Host "===== RUN NEW CONTAINER ====="
-                docker run -d --name soncoding-app --restart unless-stopped -p 80:8000 $image
-
-                Write-Host "===== DEPLOYMENT COMPLETE ====="
-              } else {
-                Write-Host "Deploy path not found: $deployPath"
-                exit 1
-              }
-            } -ErrorAction Stop
+            Write-Host "===== STOP & REMOVE EXISTING CONTAINER ====="
+            try { docker stop soncoding-app -t 10 } catch { Write-Host "Container not running" }
+            try { docker rm soncoding-app -f } catch { Write-Host "Container not found" }
             
-            Remove-PSSession $session
-            Write-Host "Deployment completed successfully"
-          } catch {
-            Write-Host "Deployment failed: $_"
+            Write-Host "===== PULL LATEST IMAGE ====="
+            docker pull $image
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "Failed to pull image"
+              exit 1
+            }
+            
+            Write-Host "===== RUN NEW CONTAINER ====="
+            docker run -d --name soncoding-app --restart unless-stopped -p 80:8000 $image
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "Failed to run container"
+              exit 1
+            }
+            
+            Write-Host "===== DEPLOYMENT COMPLETE ====="
+            Write-Host "Container deployed successfully"
+          } else {
+            Write-Host "Deploy path not found: $deployPath"
             exit 1
           }
