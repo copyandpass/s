@@ -29,7 +29,7 @@ jobs:
           
           try {
             # 원격 세션 생성
-            $session = New-PSSession -ComputerName $winHost -Credential $credential -ErrorAction Stop
+            $session = New-PSSession -ComputerName $winHost -Credential $credential -UseSSL -SkipCACheck -SkipCNCheck -ErrorAction Stop
             Write-Host "Successfully connected to Windows Server"
             
             # 배포 스크립트 실행
