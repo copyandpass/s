@@ -1,58 +1,22 @@
-name: Deploy to Windows Server
+name: Frontend CD
 
 on:
   workflow_run:
-    workflows: [ "CI/CD Pipeline" ]
+    workflows: ["CI/CD Pipeline"]
     types: [ completed ]
     branches: [ main ]
 
 jobs:
-  deploy-to-windows:
-    if: github.event.workflow_run.conclusion == 'success'
-    runs-on: [self-hosted, windows]
-    
+  deploy:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
     steps:
-      # 1. 코드 체크아웃
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Deploy to Windows server
+        uses: appleboy/ssh-action@v1
         with:
-          ref: ${{ github.event.workflow_run.head_branch }}
-      
-      # 2. Docker 컨테이너 배포
-      - name: Deploy Docker Container
-        shell: powershell
-        run: |
-          $deployPath = "C:\Users\$env:USERNAME\Desktop\soncoding-web"
-          $image = "${{ secrets.DOCKER_USERNAME }}/soncoding-server:latest"
-          
-          Write-Host "===== DEPLOYMENT START ====="
-          Write-Host "Deploy Path: $deployPath"
-          Write-Host "Image: $image"
-          
-          if (Test-Path $deployPath) {
-            Set-Location $deployPath
-            
-            Write-Host "===== STOP & REMOVE EXISTING CONTAINER ====="
-            try { docker stop soncoding-app -t 10 } catch { Write-Host "Container not running" }
-            try { docker rm soncoding-app -f } catch { Write-Host "Container not found" }
-            
-            Write-Host "===== PULL LATEST IMAGE ====="
-            docker pull $image
-            if ($LASTEXITCODE -ne 0) {
-              Write-Host "Failed to pull image"
-              exit 1
-            }
-            
-            Write-Host "===== RUN NEW CONTAINER ====="
-            docker run -d --name soncoding-app --restart unless-stopped -p 80:8000 $image
-            if ($LASTEXITCODE -ne 0) {
-              Write-Host "Failed to run container"
-              exit 1
-            }
-            
-            Write-Host "===== DEPLOYMENT COMPLETE ====="
-            Write-Host "Container deployed successfully"
-          } else {
-            Write-Host "Deploy path not found: $deployPath"
-            exit 1
-          }
+          host: ${{ secrets.WIN_HOST }}
+          username: ${{ secrets.WIN_USER }}
+          password: ${{ secrets.WIN_PASS }}
+          timeout: 60s
+          script: C:\Users\jhlee\OneDrive\Desktop\Server\Server_test\s\deploy.bat
