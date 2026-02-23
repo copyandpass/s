@@ -89,10 +89,11 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: ./dockerfile
           push: true
           tags: |
-            leejinhyuck/soncoding-server:latest
-            leejinhyuck/soncoding-server:${{ github.sha }}
+            ${{ secrets.DOCKER_USERNAME }}/soncoding-server:latest
+            ${{ secrets.DOCKER_USERNAME }}/soncoding-server:${{ github.sha }}
           cache-from: type=gha # 빌드 속도 향상을 위한 캐시
           cache-to: type=gha,mode=max
           
